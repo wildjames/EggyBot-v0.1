@@ -1,0 +1,804 @@
+#!/usr/bin/env python
+import fbchat
+import praw
+import os, sys
+import ast
+from random import randint as rand
+import random
+import time
+
+#subclass fbchat.Client and override required methods
+class EggBot(fbchat.Client):
+
+    def __init__(self,email, password, debug=False, user_agent=None):
+        fbchat.Client.__init__(self,email, password, debug, user_agent, max_retries=1)
+        #fbchat.Client.__init__(self,email, password, debug, user_agent)
+        self.wdir = '/home/wizenedchimp/Documents/Python/Facebook_Bots/'
+        self.modlist = self._modlist()
+        self.modlist = filter(None, self.modlist) # Just in case.
+        self.Whitelist = self._whitelist()
+        self.threadlist = self._threadlist()
+        self.blank = {
+            'hits':0,
+            'misses':0,
+            'hard':0,
+            'kms':0,
+            'flipped':0,
+            'doses':0,
+            'splatted':0
+            }
+        self.scoreboard = self._scoreboard()
+        
+        if self.modlist == []:
+            print 'No mods, adding me.'
+            self.add_mod(100007144988804)
+        print 'Eggy mods:'
+        for i in self.modlist:
+            try:
+                print self.getUserInfo(int(i))['firstName']
+            except:
+                True
+        
+        if self.Whitelist == []:
+            print 'Blank whitelist, adding me'
+            self.add_Whitelist(100007144988804)
+        print '\nEggy whitelist:'
+        for i in self.Whitelist:
+            try:
+                print self.getUserInfo(int(i))['firstName']
+            except:
+                True
+
+    # Initialise all the lists.
+    def _threadlist(self):
+        fname = self.wdir + 'eggythreads.txt'
+        threadlist = ['']
+        if not os.path.isfile(fname):
+            with open(fname, 'w') as f:
+                for i in threadlist:
+                    f.write(str(i)+'\n')
+        else:
+            with open(fname, 'r') as f:
+                threadlist = f.read().split('\n')
+        threadlist = filter(None, threadlist)
+        threadlist = list(set(threadlist))
+        return threadlist
+
+    def _modlist(self):
+        fname = self.wdir + 'eggmods.txt'
+        modlist = ['']
+        if not os.path.isfile(fname):
+            with open(fname, 'w') as f:
+                for i in modlist:
+                    f.write(str(i)+'\n')
+        else:
+            with open(fname, 'r') as f:
+                modlist = [str(x) for x in f.read().split('\n')]
+        modlist = filter(None, modlist)
+        modlist = list(set(modlist))
+        return modlist
+
+    def _whitelist(self):
+        fname = self.wdir + 'eggwhites.txt'
+        whitelist = ''
+        if not os.path.isfile(fname):
+            with open(fname, 'w') as f:
+                for i in whitelist:
+                    f.write(str(i)+'\n')
+        else:
+            with open(fname, 'r') as f:
+                whitelist = [str(x) for x in f.read().split('\n')]
+        whitelist = filter(None, whitelist)
+        whitelist = list(set(whitelist))
+        return whitelist
+
+    def _scoreboard(self):
+        fname = self.wdir + 'eggscores.txt'
+
+        scores = [self.blank]
+        if not os.path.isfile(fname):
+            with open(fname, 'w') as f:
+                for i,j in scores.iteritems():
+                    line = '%s %4d %4d %4d %4d %4d %4d %4d\n' % (i, j['hits'], j['misses'], j['hard'], j['kms'], j['flipped'], j['doses'], j['splatted'])
+                    f.write(line+'\n')
+        else:
+            scores = {}
+            temp = {}
+            with open(fname, 'r') as f:
+                for line in f:
+                    line = line.split()
+                    if len(line) == 5:
+                        temp['name']     = self.getUserInfo(int(line[0]))['firstName']
+                        temp['hits']     = int(line[1])
+                        temp['misses']   = int(line[2])
+                        temp['hard']     = int(line[3])
+                        temp['kms']      = int(line[4])
+                        temp['flipped']  = int(line[5])
+                        temp['doses']    = int(line[6])
+                        temp['splatted'] = int(line[7])
+                        # No duplicates
+                        scores[str(line[0])] = temp.copy()
+        return scores
+
+
+    # Write scoreboard to the file
+    def keep_scores(self):
+        fname = self.wdir + 'eggscores.txt'
+        scores = self.scoreboard
+        with open(fname, 'w') as f:
+            for i,j in scores.iteritems():
+                j = scores[i]
+                line = '%s %4d %4d %4d %4d %4d %4d %4d\n' % (i, j['hits'], j['misses'], j['hard'], j['kms'], j['flipped'], j['doses'], j['splatted'])
+                f.write(line)
+
+    # Mod functions
+    def add_mod(self, uid):
+        fname = self.wdir + 'eggmods.txt'
+        self.modlist.append(str(uid))
+        with open(fname, 'a') as f:
+            f.write(str(uid)+'\n')
+
+    def del_mod(self, uid):
+        self.modlist = [str(x) for x in self.modlist if str(x)!=uid]
+        with open(self.wdir + 'eggmods.txt', 'w') as f:
+            for i in self.modlist:
+                f.write(str(i)+'\n')
+
+    def list_mods(self, thread_id, is_user=False):
+        self.send(thread_id, 'Mods:', is_user=is_user)
+        s = ''
+        for i in self.modlist:
+            s += (self.getUserInfo(int(i))['firstName'] + '\n')
+        self.send(thread_id, s, is_user=is_user)
+
+
+    # threadlist functions
+    def add_thread(self, uid):
+        fname = self.wdir + 'eggythreads.txt'
+        self.threadlist.append(str(uid))
+        with open(fname, 'a') as f:
+            f.write(str(uid)+'\n')
+
+    def del_thread(self, uid):
+        self.threadlist = [str(x) for x in self.threadlist if str(x)!=uid]
+        with open(self.wdir + 'eggythreads.txt', 'w') as f:
+            for i in self.threadlist:
+                f.write(str(i)+'\n')
+
+    def list_threads(self, thread_id, is_user=False):
+        self.send(thread_id, 'Threads:', is_user=is_user)
+        s = ''
+        for i in self.threadlist:
+            s += (str(i) + '\n')
+        self.send(thread_id, s, is_user=is_user)
+
+
+    # Whitelist functions
+    def add_Whitelist(self, uid):
+        fname = self.wdir + 'eggwhites.txt'
+        self.Whitelist.append(str(uid))
+        with open(fname, 'a') as f:
+            f.write(str(uid)+'\n')
+        # Add an entry for them in the scoreboard
+        self.scoreboard[str(uid)](self.blank.copy())
+
+    def del_Whitelist(self, uid):
+        self.Whitelist = [str(x) for x in self.Whitelist if str(x)!=uid]
+        with open(self.wdir + 'eggwhites.txt', 'w') as f:
+            for i in self.Whitelist:
+                f.write(str(i)+'\n')
+
+    def list_Whitelists(self, thread_id, is_user=False):
+        self.send(thread_id, 'Whitelisted:', is_user=is_user)
+        s = ''
+        for i in self.Whitelist:
+            try:
+                s += (self.getUserInfo(int(i))['firstName'] + '\n')
+            except:
+                True
+        self.send(thread_id, s, is_user=is_user)
+
+
+
+    def on_message_new(self, mid, author_id, message, metadata, recipient_id, thread_type):
+        self.markAsDelivered(author_id, mid) #mark delivered
+        self.markAsRead(author_id) #mark read
+        
+        # Get the user's name
+        name = self.getUserInfo(int(author_id))['firstName']
+
+        omessage = message # Just in case
+
+        # Store whether we are talking to a user, or a group.
+        is_user = (thread_type=='user')
+        
+        # Never listen to yourself, unless you know what you're doing.
+        #if int(author_id) == int(self.uid) or message.strip()=='':
+        #    return
+
+        #Only get commands from people in the whitelist
+        if str(author_id) not in self.Whitelist:
+            return
+
+        # If we are responding to a message, we want to know about that.
+        #?# Echo everything to a logfile? #?#
+        if message[0]=='/':
+            print '\n-------------------------------------------------'
+            print("Name:         %s\nAuthor:       %s\nThread Type:  %s\nThread ID:    %s\nMessage:\n%s\n"%(author_id, name, thread_type, recipient_id, message))
+
+        #Get rid of unseemly spaces
+        message=message.strip().lower()
+
+        # Always be on the lookout for eggs. If we see an egg, let everyone know
+        if 'egg' in message and int(author_id) != int(self.uid) and is_user==False:
+            self.send(recipient_id, 'lol, egg', is_user=False)
+        time.sleep(0.2)
+        
+        #catch commands
+        if message[0] == '/':
+            message = message[1:]
+
+        ### Mod commands ###
+            # cleanly logout
+            if message[:4] == 'stop':
+                # Check they can use this command
+                if str(author_id) not in self.modlist:
+                    self.send(recipient_id, "Fuck off", is_user=is_user)
+                    print 'User is not a mod.'
+                    return
+
+                print 'Logging out...'
+                self.keep_scores()
+                self.send(recipient_id, "Right, I've had enough of this ABUSE", is_user=is_user)
+                logout = self.logout()
+                if logout:
+                    print 'Cleanly logged out!'
+                exit()
+
+            # Doesn't work...
+            elif message[:7] == 'restart' and str(author_id) in self.modlist:
+                logout = self.logout()
+                print 'Cleanly logged out...'
+                self.keep_scores()
+                sys.stdout.flush()
+                print 'flushed'
+                os.execvp('/usr/bin/python', '/home/wizenedchimp/Documents/Python/bin/eggbot')
+
+            # mod users
+            elif message[:4] == 'mod ':
+                message = message[3:].strip()
+
+                if message == ' me':
+                    print '%s wants to be a mod\nID: %s' % (name, author_id)
+
+                if str(author_id) not in self.modlist:
+                    self.send(recipient_id, "Fuck off", is_user=is_user)
+                    print 'User is not a mod.'
+                    return
+
+                try:
+                    target_id = str(metadata['delta']['data']['prng'])
+                    target_id = ast.literal_eval(target_id.strip())
+                    target_id = str(target_id[0]['i'])
+                except:
+                    self.send(recipient_id, "Couldn't get the right ID. Did you use an '@'?", is_user=is_user)
+                
+                print 'Modding %s' % target_id
+                before = len(self.modlist)
+                self.add_mod(target_id)
+
+                if len(self.modlist) > before:
+                    self.send(recipient_id, 'Modded a new egg!', is_user=is_user)
+            #Demod Users
+            elif message[:5] == 'demod':
+                if str(author_id) not in self.modlist:
+                    self.send(recipient_id, "Fuck off", is_user=is_user)
+                    print 'User is not a mod.'
+                    return
+
+                message = message[5:].strip()
+
+                try:
+                    target_id = str(metadata['delta']['data']['prng'])
+                    target_id = ast.literal_eval(target_id.strip())
+                    target_id = str(target_id[0]['i'])
+                except:
+                    self.send(recipient_id, "Couldn't get the right ID. Did you use an '@'?", is_user=is_user)
+                print 'Demodding %s' % target_id
+                before = len(self.modlist)
+
+                self.del_mod(target_id)
+                
+                if len(self.modlist) < before:
+                    self.send(recipient_id, "Demodded a bad egg :'(", is_user=is_user)
+
+            # mod or demod users
+            elif message[:3] == 'add':
+                message = message[3:].strip()
+
+                if str(author_id) not in self.modlist:
+                    self.send(recipient_id, "Fuck off", is_user=is_user)
+                    print 'User is not a mod.'
+                    return
+                
+                self.send(recipient_id, "Adding this chat to my list...", is_user=is_user)
+                
+                print 'Adding thread %s' % recipient_id
+                before = len(self.threadlist)
+                self.add_thread(recipient_id)
+
+                if len(self.threadlist) > before:
+                    self.send(recipient_id, "Added a new nest of lil' eggs!", is_user=is_user)
+                print 'Whitelist is now:'
+                for i in self.Whitelist:
+                    print i
+
+            # whitelist users
+            elif message[:9] == 'whitelist':
+                message = message[3:].strip()
+
+                if str(author_id) not in self.modlist:
+                    self.send(recipient_id, "Fuck off", is_user=is_user)
+                    print 'User is not a mod.'
+                    return
+
+                try:
+                    target_id = str(metadata['delta']['data']['prng'])
+                    target_id = ast.literal_eval(target_id.strip())
+                    target_id = str(target_id[0]['i'])
+                except:
+                    self.send(recipient_id, "Couldn't get the right ID. Did you use an '@'?", is_user=is_user)
+
+                target_name = self.getUserInfo(int(target_id))['firstName']
+
+                s = "Enabling commands for %s..." % target_name
+                self.send(recipient_id, s, is_user=is_user)
+                
+                print 'Adding user %s to whitelist' % target_id
+                before = len(self.threadlist)
+                self.add_Whitelist(target_id)
+
+                if len(self.Whitelist) > before:
+                    self.send(recipient_id, "Added a new lil' egg!", is_user=is_user)
+                print 'Whitelist is now:'
+                for i in self.Whitelist:
+                    print i
+
+            # blacklist users
+            elif message[:9] == 'blacklist':
+                message = message[3:].strip()
+
+                if str(author_id) not in self.modlist:
+                    self.send(recipient_id, "Fuck off", is_user=is_user)
+                    print 'User is not a mod.'
+                    return
+
+                try:
+                    target_id = str(metadata['delta']['data']['prng'])
+                    target_id = ast.literal_eval(target_id.strip())
+                    target_id = str(target_id[0]['i'])
+                except:
+                    self.send(recipient_id, "Couldn't get the right ID. Did you use an '@'?", is_user=is_user)
+
+                if target_id == '100007144988804':
+                    self.send(recipient_id, "Fuck off", is_user=is_user)
+                    return
+
+                target_name = self.getUserInfo(int(target_id))['firstName']
+
+                s = "Disabling commands for %s..." % target_name
+                self.send(recipient_id, s, is_user=is_user)
+                
+                print 'Removing user %s from whitelist' % target_id
+                before = len(self.threadlist)
+                self.del_Whitelist(target_id)
+
+                if len(self.Whitelist) > before:
+                    self.send(recipient_id, "Punished a bad egg :(", is_user=is_user)
+                print 'Whitelist is now:'
+                for i in self.Whitelist:
+                    print i
+
+            elif message[:9] =='listwhite':
+                self.list_Whitelists(recipient_id, is_user=is_user)
+
+
+        ### Print help
+            if message[:4] == 'help':
+                self.send(recipient_id, "OH LOOK, WE HAVE AN IDIOT.\nEVERYONE LOOK AND LAUGH AT THE IDIOT. \nHAHAHAHAHAHAHAHAHAHAHAHAH", is_user=is_user)
+                self.send(recipient_id, "I have a few commands. James is still working on me though, so this is all open to change and fuck you, I don't have to tell you a damn thing about that.", is_user=is_user)
+                self.send(recipient_id, "Available commands: ", is_user=is_user)
+                self.send(recipient_id, "-- /flip <n>", is_user=is_user)
+                self.send(recipient_id, "-- /dailydose", is_user=is_user)
+                self.send(recipient_id, "-- /roll <n>d<x> (implicit x=1)", is_user=is_user)
+                self.send(recipient_id, "-- /shower", is_user=is_user)
+                self.send(recipient_id, "-- /splat @<name>", is_user=is_user)
+                if str(author_id) in self.modlist:
+                    self.send(recipient_id, "-- /mod @<name>", is_user=is_user)
+                    self.send(recipient_id, "-- /demod @<name>", is_user=is_user)
+                #self.send(recipient_id, "- /davegif", is_user=is_user)
+            
+        ###  Commands for plebs
+            #flip an EGG
+            elif message[:4] == 'flip':
+                message = message[4:]
+
+                try:
+                    if message:
+                        n = int(message)
+                        if n > 5000:
+                            self.send(recipient_id, "Alright, calm down.", is_user=is_user)
+                            return
+                        elif n > 2000:
+                            self.send(recipient_id, "Unfortunately, 'THE MAN' has a max message length. I'll give it a shot anyway though!", is_user=is_user)
+                        elif n > 50:
+                            self.send(recipient_id, "That's too many eggs. You're gonna get cholesterol poisoning", is_user=is_user)
+                        elif n < 1:
+                            self.send(recipient_id, "Don't waste my fucking time, prick.", is_user=is_user)
+                            return
+                        s = ''
+                        k = 0
+                        prob = 1
+                        if author_id == '100001448138666':
+                            prob = 10
+                        for i in range(n):
+                            flip = rand(0,prob)
+                            self.scoreboard[str(author_id)]['flipped']+=1
+                            if flip:
+                                s += '(o) '
+                            else:
+                                s += '( ) '
+                                k += 1
+                            if (i+1)%10 == 0:
+                                s += '\n'
+                            if (i+1)%2000 == 0:
+                                self.send(recipient_id, s, is_user=is_user)
+                                s = ''
+                        fails = float(k)/float(n)
+                        fails *= 100.
+                        fails = int(fails)
+                        stats = 'You clumsy fuck! You made %d eggs, but %d of them landed upside down!\nThats a failure rate of %3d%%. You should really kill yourself!' % (n, k, fails)
+                        self.send(recipient_id, s, is_user=is_user)
+                        self.send(recipient_id, stats, is_user=is_user)
+                    else:
+                        flip = rand(0,1)
+                        self.scoreboard[str(author_id)]['flipped']+=1
+                        if flip:
+                            self.send(recipient_id, 'Your egg landed sunnyside up! (o)', is_user=is_user)
+                        else:
+                            self.send(recipient_id, 'Your egg landed sunnyside down :(', is_user=is_user)
+                except ValueError:
+                    flip = rand(0,1)
+                    self.scoreboard[str(author_id)]['flipped']+=1
+                    if flip:
+                        self.send(recipient_id, 'Your egg landed sunnyside up! (o)', is_user=is_user)
+                    else:
+                        self.send(recipient_id, 'Your egg landed sunnyside down :(', is_user=is_user)
+                except ZeroDivisionError:
+                    self.send(recipient_id, 'Right, fuck off.', is_user=is_user)
+
+            # Sometimes, you just need some egg.
+            elif message[:9] == 'dailydose':
+                message = message[9:]
+                self.scoreboard[str(author_id)]['doses'] += 1
+                self.daily_egg(recipient_id, is_user)
+
+            elif message[:4] == 'dank':
+                message = message[4:]
+                self.dank_meme(recipient_id, is_user=is_user)
+
+            # In a word, VIOLENCE
+            elif message[:5] == 'splat':
+                message = message[5:].strip().lower()
+                try:
+                    target_id = str(metadata['delta']['data']['prng'])
+                    target_id = ast.literal_eval(target_id.strip())
+                    target_id = str(target_id[0]['i'])
+                except:
+                    target_id = author_id
+
+                author_name = self.getUserInfo(int(author_id))['firstName']
+                target_name = self.getUserInfo(int(target_id))['firstName']
+
+                try:
+                    s = '%s threw an egg at %s!' % (author_name, target_name)
+                    sent = self.send(recipient_id, s, is_user=is_user)
+                    time.sleep(1)
+
+                    ra = rand(1,10)
+                    print ra
+                    if ra < 6:
+                        sent = self.send(recipient_id, '*THUNK*', is_user=is_user)
+                        sent = self.send(recipient_id, 'Fucking hell, it was hardboiled!', is_user=is_user)
+                        self.scoreboard[str(author_id)]['hard'] += 1
+                        self.scoreboard[str(author_id)]['hits'] += 1
+                    elif ra == 1:
+                        s = "%s tried to throw an egg, but they're an idiot, missed, and got egg everywhere. Thanks, %s." % (author_name)
+                        sent = self.send(recipient_id, s, is_user=is_user)
+                    else:
+                        sent = self.send(recipient_id, '*SPLAT*', is_user=is_user)
+                        sent = self.send(recipient_id, "eugh! there's fucking egg, EVERYWHERE", is_user=is_user)
+                        self.scoreboard[str(author_id)]['hits'] += 1
+
+                except:
+                    s = "%s tried to throw an egg, but they're an idiot and missed. Well done, %s." % (author_name)
+                    sent = self.send(recipient_id, s, is_user=is_user)
+                    self.scoreboard[str(author_id)]['misses'] += 1
+
+            elif message[:5] == 'score':
+                self.print_scoreboard(author_id, recipient_id, is_user=is_user)
+
+            # Roll the DICE
+            elif message[:4] == 'roll':
+                message = message[4:]
+                
+                if 'd' in message:
+                    try:
+                        rand_range = [int(x) for x in message.split('d')]
+                        if len(rand_range) != 2:
+                            self.send(recipient_id, "I don't know what you're on about, mate", is_user=is_user)
+                            return
+                    except:
+                        print 'Bad input...'
+                        self.send(recipient_id, "I don't know what you're on about, mate", is_user=is_user)
+                        return
+
+                    if rand_range[1] < 1:
+                        self.send(recipient_id, message='Use valid dice, idiot.', is_user=is_user)
+                        return
+
+                    # Catch when they try retarded shit
+                    elif rand_range[1] > 999:
+                        s = "%d sided die? I'm an egg, not a fucking miracle worker." % (rand_range[1])
+                        self.send(recipient_id, message=s, is_user=is_user)
+                        return
+                    elif rand_range[0] > 2000:
+                        s = "%d die? I'm an egg, not a fucking miracle worker." % (rand_range[0])
+                        self.send(recipient_id, message=s, is_user=is_user)
+                        return
+
+                    elif len(rand_range) == 2 and rand_range[0] > 1:
+                        print 'Rolling %d %d sided eggs...' % (rand_range[0], rand_range[1])
+                        s = 'Rolling %d %d sided eggs...' % (rand_range[0], rand_range[1])
+                        self.send(recipient_id, message=s, is_user=is_user)
+
+                        s = ''
+                        for i in range(rand_range[0]):
+                            s += '%03d, ' % rand(1,rand_range[1])
+                            # Mae it wrap consistently
+                            if (i)%10 == 9:
+                                s += '\n'
+                        #strip the trailing comma
+                        s = s[:-2]
+
+                    elif len(rand_range) == 2 and rand_range[0] == 1:
+                        s = 'Rolled a %d!' % rand(1,rand_range[1])
+
+                else:
+                    try:
+                        rand_range = int(message)
+                        if rand_range < 1:
+                            self.send(recipient_id, message='Use valid dice, idiot.', is_user=is_user)
+                            return
+                        # Catch when they try retarded shit
+                        elif rand_range > 999:
+                            s = "%d sided die? I'm an egg, not a fucking miracle worker." % (rand_range[1])
+                            self.send(recipient_id, message=s, is_user=is_user)
+                            return
+
+                        s = 'Rolled a %d sided egg!\n\nYou rolled a %d!' % (rand_range, rand(1,rand_range))
+                    except ValueError:
+                        s = 'Roll a number, dipshit.'
+                self.send(recipient_id, message=s, is_user=is_user)
+
+            # Shower thoughts
+            elif message[:6] == 'shower':
+                message = message[6:]
+                self.take_a_shower(recipient_id, is_user=is_user)
+
+            # Become an hero
+            elif message[:10] == 'kms':
+                self.send(recipient_id, '*BANG*', is_user=is_user)
+                s = 'Shit! %s just shot their brains out!!' % (name)
+                self.send(recipient_id, s, is_user=is_user)
+
+                self.scoreboard[str(author_id)]['kms'] += 1
+
+            elif message[:4] == 'mods':
+                self.list_mods(recipient_id, is_user=is_user)
+
+    # Print the scoreboard
+    def print_scoreboard(self, author_id, recipient_id, is_user=False):
+        try:
+            i = self.scoreboard[str(author_id)]
+            s = 'Your stats...\n'
+            s += ('%s\nEggs on target: %s\nMissed eggs: %s\nHardboiled eggs thrown: %s\nEggs flipped: %s\nTimes an heroed: %s\nDoses taken: %s\n' %
+                 (i['name'], i['hits'], i['misses'], i['hard'], i['flipped'], i['kms'], i['doses']))
+        except:
+            s = "You don't have any stats, I'll set some up for you..."
+            self.scoreboard[str(author_id)] = self.blank
+            i = self.scoreboard[str(author_id)]
+            s = 'Your stats...\n'
+            s += ('%s\nEggs on target: %s\nMissed eggs: %s\nHardboiled eggs thrown: %s\nEggs flipped: %s\nTimes an heroed: %s\nDoses taken: %s\n' %
+                 (i['name'], i['hits'], i['misses'], i['hard'], i['flipped'], i['kms'], i['doses']))
+        
+        self.send(recipient_id, s, is_user=is_user)
+
+    # Grab a random post from showerthoughts, check we've not used it before, and post it
+    def take_a_shower(self, thread_id, is_user=True):
+        #Keep a record of what we've already used.
+        fname = self.wdir + 'posts.txt'
+        posts_used = []
+        if not os.path.isfile(fname):
+            posts_used = []
+        else:
+            with open(fname, 'r') as f:
+                posts_used = f.read()
+            # Split it up, and filter out the empty values if there are any.
+            posts_used = posts_used.split('\n')
+            posts_used = list(filter(None, posts_used))
+
+
+        # Open up the bot to r/ShowerThoughts
+        reddit=praw.Reddit('bot1')
+        subreddit=reddit.subreddit('ShowerThoughts')
+
+        # Get a random post. If it's already been seen, pick another until it hasn't.
+        chosen = subreddit.random()
+        while chosen.id in posts_used:
+            chosen = subreddit.random()
+
+        # Append the post id to the file, so we don't get it again.
+        with open(fname, 'a') as f:
+            f.write(chosen.id)
+            f.write('\n')
+
+        # Send it to him
+        sent = self.send(thread_id, "Here's a thought", is_user=is_user)
+        sent = self.send(thread_id, chosen.title, is_user=is_user)
+
+    # We always want more frens
+    def on_friend_request(self, from_id):
+        print 'Received a freind reqest :3'
+        print 'It was from %s' % from_id
+        self.send(from_id, 'I hear you like eggs... ;)', is_user=True)
+        accept = self.friend_connect(from_id)
+        if accept:
+            print 'Yay! New friends!'
+
+    # Scrapes r/putaneggonit, and replies with the pic. Also checks for duplicates.
+    def daily_egg(self, thread_id, is_user=True):
+        print 'Sending the group chat a nice egg'
+        self.send(thread_id, message='Let me go fetch you some eggy goodness...', is_user=is_user)
+
+        #Keep a record of what we've already used.
+        fname = self.wdir + 'egg_posts.txt'
+        posts_used = []
+        if not os.path.isfile(fname):
+            posts_used = []
+        else:
+            with open(fname, 'r') as f:
+                posts_used = f.read()
+            # Split it up, and filter out the empty values if there are any.
+            posts_used = posts_used.split('\n')
+            posts_used = list(filter(None, posts_used))
+
+
+        # Open up the bot to r/PutAnEggOnIt
+        sub = 'PutAnEggOnIt'
+        print 'Getting an egg from %s...' % sub
+        reddit=praw.Reddit('bot1')
+        subreddit=reddit.subreddit(sub)
+
+        # Get the hottest, dankest posts.
+        hotposts = subreddit.hot(limit=100)
+
+        potential_dank_memes = []
+        egg_dict = {'id':'',
+                     'url':'',
+                     'title':'',
+                     'score':0
+                     }
+        for post in hotposts:
+            egg_dict['id'] = post.id
+            egg_dict['url'] = post.url
+            egg_dict['title'] = post.title
+            egg_dict['score'] = post.score
+            potential_dank_memes.append(egg_dict.copy())
+
+        # Get a random dank post, and make sure it's an image.
+        img = ['.png', '.jpg']
+        index = rand(0,99)
+        while potential_dank_memes[index]['id'] in posts_used or potential_dank_memes[index]['url'][-4:] not in img:
+            index = rand(0,99)
+        chosen = potential_dank_memes[index]
+        print chosen['url']
+
+        # Send an egg to the chat
+        # Send it as an image.
+        send = self.sendRemoteImage(thread_id, message='Time for your daily dose of egg!', is_user=is_user, image=chosen['url'])
+        if send:
+            print '\nEveryone needs a daily dose of egg.\n'
+            # Append the post id to the file, so we don't get it twice.
+            with open(fname, 'a') as f:
+                f.write(chosen['id'])
+                f.write('\n')
+
+    #Send a  d a n k  m e m e
+    def dank_meme(self, thread_id, is_user=True):
+        #Keep a record of what we've already used.
+        fname = self.wdir + 'dank_posts.txt'
+        posts_used = []
+        if not os.path.isfile(fname):
+            posts_used = []
+        else:
+            with open(fname, 'r') as f:
+                posts_used = f.read()
+            # Split it up, and filter out the empty values if there are any.
+            posts_used = posts_used.split('\n')
+            posts_used = list(filter(None, posts_used))
+
+
+        # Open up the bot to r/DankMemes, r/prequelmemes, 2meirl4meirl, or r/meirl
+        options = ['dankmemes', 'prequelmemes', '2meirl4meirl', 'meirl', 'sequelmemes', 'wholesomememes']
+        sub = options[random.randint(0, len(options)-1)]
+        print 'Getting a  m e m e  from %s...' % sub
+        reddit=praw.Reddit('bot1')
+        subreddit=reddit.subreddit(sub)
+
+        # Get the hottest, dankest posts.
+        hotposts = subreddit.hot(limit=100)
+
+        potential_dank_memes = []
+        dank_dict = {'id':'',
+                     'url':'',
+                     'title':'',
+                     'score':0
+                     }
+        for post in hotposts:
+            dank_dict['id'] = post.id
+            dank_dict['url'] = post.url
+            dank_dict['title'] = post.title
+            dank_dict['score'] = post.score
+            potential_dank_memes.append(dank_dict.copy())
+
+        # Get a random dank post, and make sure it's an image.
+        img = ['.png', '.jpg']
+        index = random.randint(0,99)
+        while potential_dank_memes[index]['id'] in posts_used or potential_dank_memes[index]['url'][-4:] not in img:
+            index = random.randint(0,99)
+        chosen = potential_dank_memes[index]
+        print chosen['url']
+
+        # Send it
+        if sub == 'wholesomememes':
+            send = self.sendRemoteImage(thread_id, message="I'm not feeling very dank at the minute. Have a nice, wholesome pic:", image=chosen['url'], is_user=is_user)
+        else:
+            send = self.sendRemoteImage(thread_id, message="Wow! That's so dank I may just kms!", image=chosen['url'], is_user=is_user)
+        if send:
+            # Append the post id to the file, so we don't get it again.
+            with open(fname, 'a') as f:
+                f.write(chosen['id'])
+                f.write('\n')
+
+
+
+print 'Logging in...'
+
+uname = ''
+password = ''
+wdir = '/home/wizenedchimp/Documents/Python/Facebook_Bots/'
+with open(wdir+'eggydetails.txt', 'r') as f:
+    uname, password = f.read().split('\n')[:2]
+print 'Using the following account: \n%s\n%s' % (uname, '##password')
+bot = EggBot(uname, password, debug=False)
+if bot:
+    print 'Login successful!'
+
+for i in bot.threadlist:
+    try:
+        bot.send(str(i), 'Beep Boop, VinceBot online.', is_user=False)
+    except:
+        True
+
+bot.listen()
