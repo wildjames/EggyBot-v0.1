@@ -31,7 +31,7 @@ class EggBot(fbchat.Client):
         
         if self.modlist == []:
             print 'No mods, adding me.'
-            self.add_mod(100007144988804)
+            self.add_mod('100007144988804')
         print 'Eggy mods:'
         for i in self.modlist:
             try:
@@ -41,7 +41,7 @@ class EggBot(fbchat.Client):
         
         if self.Whitelist == []:
             print 'Blank whitelist, adding me'
-            self.add_Whitelist(100007144988804)
+            self.add_Whitelist('100007144988804')
         print '\nEggy whitelist:'
         for i in self.Whitelist:
             try:
@@ -94,8 +94,8 @@ class EggBot(fbchat.Client):
 
     def _scoreboard(self):
         fname = self.wdir + 'eggscores.txt'
-
-        scores = [self.blank]
+        scores = {}
+        scores['Blank'] = [self.blank]
         if not os.path.isfile(fname):
             with open(fname, 'w') as f:
                 for i,j in scores.iteritems():
