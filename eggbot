@@ -139,6 +139,8 @@ class EggBot(fbchat.Client):
             f.write(str(uid)+'\n')
 
     def del_mod(self, uid):
+        if int(uid) == int(self.uid):
+            return
         self.modlist = [str(x) for x in self.modlist if str(x)!=uid]
         with open(self.wdir + 'eggmods.txt', 'w') as f:
             for i in self.modlist:
@@ -180,7 +182,8 @@ class EggBot(fbchat.Client):
         with open(fname, 'a') as f:
             f.write(str(uid)+'\n')
         # Add an entry for them in the scoreboard
-        self.scoreboard[str(uid)](self.blank.copy())
+        print type(self.scoreboard)
+        self.scoreboard[str(uid)] = self.blank.copy()
 
     def del_Whitelist(self, uid):
         self.Whitelist = [str(x) for x in self.Whitelist if str(x)!=uid]
@@ -216,6 +219,12 @@ class EggBot(fbchat.Client):
         #if int(author_id) == int(self.uid) or message.strip()=='':
         #    return
 
+        # Always be on the lookout for eggs. If we see an egg, let everyone know
+        if 'egg' in message.lower() and int(author_id) != int(self.uid):
+            self.send(recipient_id, 'lol, egg', is_user=is_user)
+            self.daily_egg(recipient_id, is_user=is_user)
+            time.sleep(1)
+        
         #Only get commands from people in the whitelist
         if str(author_id) not in self.Whitelist:
             return
@@ -223,17 +232,12 @@ class EggBot(fbchat.Client):
         # If we are responding to a message, we want to know about that.
         #?# Echo everything to a logfile? #?#
         if message[0]=='/':
-            print '\n-------------------------------------------------'
+            print '\n---------------------------------------------'
             print("Name:         %s\nAuthor:       %s\nThread Type:  %s\nThread ID:    %s\nMessage:\n%s\n"%(author_id, name, thread_type, recipient_id, message))
 
         #Get rid of unseemly spaces
         message=message.strip().lower()
 
-        # Always be on the lookout for eggs. If we see an egg, let everyone know
-        if 'egg' in message and int(author_id) != int(self.uid) and is_user==False:
-            self.send(recipient_id, 'lol, egg', is_user=False)
-        time.sleep(0.2)
-        
         #catch commands
         if message[0] == '/':
             message = message[1:]
@@ -335,19 +339,23 @@ class EggBot(fbchat.Client):
 
             # whitelist users
             elif message[:9] == 'whitelist':
-                message = message[3:].strip()
+                message = message[9:].strip()
 
                 if str(author_id) not in self.modlist:
                     self.send(recipient_id, "Fuck off", is_user=is_user)
                     print 'User is not a mod.'
                     return
 
-                try:
-                    target_id = str(metadata['delta']['data']['prng'])
-                    target_id = ast.literal_eval(target_id.strip())
-                    target_id = str(target_id[0]['i'])
-                except:
-                    self.send(recipient_id, "Couldn't get the right ID. Did you use an '@'?", is_user=is_user)
+                # if message is from a user, and message contains no string, add thread to whitelist since this is the user ID
+                if message == '' and is_user==True:
+                    target_id = recipient_id
+                else:
+                    try:
+                        target_id = str(metadata['delta']['data']['prng'])
+                        target_id = ast.literal_eval(target_id.strip())
+                        target_id = str(target_id[0]['i'])
+                    except:
+                        self.send(recipient_id, "Couldn't get the right ID. Did you use an '@'?", is_user=is_user)
 
                 target_name = self.getUserInfo(int(target_id))['firstName']
 
@@ -407,16 +415,18 @@ class EggBot(fbchat.Client):
             if message[:4] == 'help':
                 self.send(recipient_id, "OH LOOK, WE HAVE AN IDIOT.\nEVERYONE LOOK AND LAUGH AT THE IDIOT. \nHAHAHAHAHAHAHAHAHAHAHAHAH", is_user=is_user)
                 self.send(recipient_id, "I have a few commands. James is still working on me though, so this is all open to change and fuck you, I don't have to tell you a damn thing about that.", is_user=is_user)
-                self.send(recipient_id, "Available commands: ", is_user=is_user)
-                self.send(recipient_id, "-- /flip <n>", is_user=is_user)
-                self.send(recipient_id, "-- /dailydose", is_user=is_user)
-                self.send(recipient_id, "-- /roll <n>d<x> (implicit x=1)", is_user=is_user)
-                self.send(recipient_id, "-- /shower", is_user=is_user)
-                self.send(recipient_id, "-- /splat @<name>", is_user=is_user)
+                
+                s = ''
+                s += "Available commands: \n"
+                s += "-- /flip <n>\n"
+                s += "-- /dailydose\n"
+                s += "-- /roll <n>d<x> (implicit x=1)\n"
+                s += "-- /shower\n"
+                s += "-- /splat @<name>\n"
                 if str(author_id) in self.modlist:
-                    self.send(recipient_id, "-- /mod @<name>", is_user=is_user)
-                    self.send(recipient_id, "-- /demod @<name>", is_user=is_user)
-                #self.send(recipient_id, "- /davegif", is_user=is_user)
+                    s += "-- /mod @<name>\n"
+                    s += "-- /demod @<name>\n"
+                self.send(recipient_id, s, is_user=is_user)
             
         ###  Commands for plebs
             #flip an EGG
@@ -480,7 +490,7 @@ class EggBot(fbchat.Client):
             # Sometimes, you just need some egg.
             elif message[:9] == 'dailydose':
                 message = message[9:]
-                self.scoreboard[str(author_id)]['doses'] += 1
+                #self.scoreboard[str(author_id)]['doses'] += 1
                 self.daily_egg(recipient_id, is_user)
 
             elif message[:4] == 'dank':
@@ -507,7 +517,7 @@ class EggBot(fbchat.Client):
 
                     ra = rand(1,10)
                     print ra
-                    if ra < 6:
+                    if ra < 4:
                         sent = self.send(recipient_id, '*THUNK*', is_user=is_user)
                         sent = self.send(recipient_id, 'Fucking hell, it was hardboiled!', is_user=is_user)
                         self.scoreboard[str(author_id)]['hard'] += 1
@@ -609,18 +619,19 @@ class EggBot(fbchat.Client):
 
     # Print the scoreboard
     def print_scoreboard(self, author_id, recipient_id, is_user=False):
+        name = self.getUserInfo(int(author_id))['firstName']
         try:
             i = self.scoreboard[str(author_id)]
             s = 'Your stats...\n'
             s += ('%s\nEggs on target: %s\nMissed eggs: %s\nHardboiled eggs thrown: %s\nEggs flipped: %s\nTimes an heroed: %s\nDoses taken: %s\n' %
-                 (i['name'], i['hits'], i['misses'], i['hard'], i['flipped'], i['kms'], i['doses']))
+                 (name, i['hits'], i['misses'], i['hard'], i['flipped'], i['kms'], i['doses']))
         except:
             s = "You don't have any stats, I'll set some up for you..."
-            self.scoreboard[str(author_id)] = self.blank
+            self.scoreboard[str(author_id)] = self.blank.copy()
             i = self.scoreboard[str(author_id)]
             s = 'Your stats...\n'
             s += ('%s\nEggs on target: %s\nMissed eggs: %s\nHardboiled eggs thrown: %s\nEggs flipped: %s\nTimes an heroed: %s\nDoses taken: %s\n' %
-                 (i['name'], i['hits'], i['misses'], i['hard'], i['flipped'], i['kms'], i['doses']))
+                 (name, i['hits'], i['misses'], i['hard'], i['flipped'], i['kms'], i['doses']))
         
         self.send(recipient_id, s, is_user=is_user)
 
@@ -795,10 +806,10 @@ bot = EggBot(uname, password, debug=False)
 if bot:
     print 'Login successful!'
 
-for i in bot.threadlist:
-    try:
-        bot.send(str(i), 'Beep Boop, VinceBot online.', is_user=False)
-    except:
-        True
+#for i in bot.threadlist:
+#    try:
+#        bot.send(str(i), 'Beep Boop, VinceBot online.', is_user=False)
+#    except:
+#        True
 
 bot.listen()
