@@ -12,10 +12,10 @@ import datetime, threading, time
 #subclass fbchat.Client and override required methods
 class EggBot(fbchat.Client):
 
-    def __init__(self,email, password, debug=False, user_agent=None):
+    def __init__(self, email, password, wdir, debug=False, user_agent=None):
         fbchat.Client.__init__(self,email, password, debug, user_agent, max_retries=1)
         #fbchat.Client.__init__(self,email, password, debug, user_agent)
-        self.wdir = '/home/wizenedchimp/Documents/Python/Facebook_Bots/'
+        self.wdir = wdir
         self.modlist = self._modlist()
         self.modlist = filter(None, self.modlist) # Just in case.
         self.Whitelist = self._whitelist()
@@ -469,10 +469,10 @@ class EggBot(fbchat.Client):
                 try:
                     if message:
                         n = int(message)
-                        if n > 5000:
+                        if n > 500:
                             self.send(recipient_id, "Alright, calm down.", is_user=is_user)
                             return
-                        elif n > 2000:
+                        elif n > 200:
                             self.send(recipient_id, "Unfortunately, 'THE MAN' has a max message length. I'll give it a shot anyway though!", is_user=is_user)
                         elif n > 50:
                             self.send(recipient_id, "That's too many eggs. You're gonna get cholesterol poisoning", is_user=is_user)
@@ -837,10 +837,21 @@ print 'Logging in...'
 uname = ''
 password = ''
 wdir = '/home/wizenedchimp/Documents/Python/Facebook_Bots/'
+
+if not os.path.isfile(fname):
+    with open(fname, 'w') as f:
+        f.write('Username/email\n')
+        f.write('Password')
+    print 'Fill out your details!!'
+    exit()
+
 with open(wdir+'eggydetails.txt', 'r') as f:
     uname, password = f.read().split('\n')[:2]
+
 print 'Using the following account: \n%s\n%s' % (uname, '##password')
-bot = EggBot(uname, password, debug=False)
+
+bot = EggBot(uname, password, wdir, debug=False)
+
 if bot:
     print 'Login successful!'
 
