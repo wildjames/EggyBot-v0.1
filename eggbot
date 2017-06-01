@@ -137,7 +137,7 @@ class EggBot(fbchat.Client):
     # Spawn a second thread that periodically saves the scores to file
     def track_scores(self):
       self.next_call
-      self.next_call = self.next_call+(60*60*4)
+      self.next_call = self.next_call+(60*20)
       if self.tracking:
           self.track_daemon = threading.Timer((self.next_call-time.time()), self.track_scores)
           self.track_daemon.start()
@@ -837,6 +837,7 @@ print 'Logging in...'
 uname = ''
 password = ''
 wdir = '/home/wizenedchimp/Documents/Python/Facebook_Bots/'
+fname = wdir+'eggydetails.txt'
 
 if not os.path.isfile(fname):
     with open(fname, 'w') as f:
@@ -845,7 +846,7 @@ if not os.path.isfile(fname):
     print 'Fill out your details!!'
     exit()
 
-with open(wdir+'eggydetails.txt', 'r') as f:
+with open(fname, 'r') as f:
     uname, password = f.read().split('\n')[:2]
 
 print 'Using the following account: \n%s\n%s' % (uname, '##password')
