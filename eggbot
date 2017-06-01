@@ -27,7 +27,8 @@ class EggBot(fbchat.Client):
             'kms':0,
             'flipped':0,
             'doses':0,
-            'splatted':0
+            'splatted':0,
+            'dank':0
             }
         self.scoreboard = self._scoreboard()
         self.next_call = time.time()
@@ -115,7 +116,7 @@ class EggBot(fbchat.Client):
                 for line in f:
                     line = line.split()
                     #### WHEN ADDING A NEW SCORE TO TRACK, DONT FORGET TO UPDATE THE LEN COMPARISON ####
-                    if len(line) == 8:
+                    if len(line) == 9:
                         temp['name']     = self.getUserInfo(int(line[0]))['firstName']
                         temp['hits']     = int(line[1])
                         temp['misses']   = int(line[2])
@@ -124,6 +125,7 @@ class EggBot(fbchat.Client):
                         temp['flipped']  = int(line[5])
                         temp['doses']    = int(line[6])
                         temp['splatted'] = int(line[7])
+                        temp['dank']     = int(line[8])
                         # No duplicates
                         if int(line[0]) not in [int(x[0]) for x,y in scores.iteritems()]:
                             scores[str(line[0])] = temp.copy()
@@ -135,9 +137,10 @@ class EggBot(fbchat.Client):
     # Spawn a second thread that periodically saves the scores to file
     def track_scores(self):
       self.next_call
-      self.next_call = self.next_call+36000.
+      self.next_call = self.next_call+(60*60*4)
       if self.tracking:
-          threading.Timer( self.next_call - time.time(), self.track_scores).start()
+          self.track_daemon = threading.Timer((self.next_call-time.time()), self.track_scores)
+          self.track_daemon.start()
           self.keep_scores()
 
     # Write scoreboard to the file
@@ -203,7 +206,7 @@ class EggBot(fbchat.Client):
         with open(fname, 'a') as f:
             f.write(str(uid)+'\n')
         # Add an entry for them in the scoreboard
-        if not self.scoreboard[str(uid)]:
+        if not str(uid) in self.scoreboard.keys():
             self.scoreboard[str(uid)] = self.blank.copy()
         else:
             print 'preserved old scores'
@@ -243,8 +246,6 @@ class EggBot(fbchat.Client):
         if 'egg' in message.lower() and int(author_id) != int(self.uid):
             self.send(recipient_id, 'lol, egg', is_user=is_user)
             self.daily_egg(recipient_id, is_user=is_user)
-            # Helps reduce chances of being flagged as spam
-            time.sleep(1)
         
         #Only get commands from people in the whitelist
         if str(author_id) not in self.Whitelist or message == '':
@@ -254,7 +255,8 @@ class EggBot(fbchat.Client):
         #?# Echo everything to a logfile? #?#
         if message[0]=='/':
             print '---------------------------------------------'
-            print("Name:         %s\nAuthor:       %s\nThread Type:  %s\nThread ID:    %s\nMessage:\n%s\n"%(author_id, name, thread_type, recipient_id, message))
+            print("Name:         %s\nAuthor:       %s\nThread Type:  %s\nThread ID:    %s\nMessage:\n%s\n"%
+                  (name, author_id, thread_type, recipient_id, message))
 
         #Get rid of unseemly padding
         message=message.strip().lower()
@@ -277,6 +279,7 @@ class EggBot(fbchat.Client):
                 print 'Logging out...'
 
                 self.tracking = False
+                self.track_daemon.cancel()
                 self.keep_scores()
                 self.send(recipient_id, "Right, I've had enough of this ABUSE", is_user=is_user)
                 logout = self.logout()
@@ -367,7 +370,7 @@ class EggBot(fbchat.Client):
             elif message[:9] == 'whitelist':
                 message = message[9:].strip()
 
-                if str(author_id) not in self.modlist:
+                if str(author_id) not in self.Whitelist:
                     self.send(recipient_id, "Fuck off", is_user=is_user)
                     print 'User is not a mod.'
                     return
@@ -437,10 +440,6 @@ class EggBot(fbchat.Client):
                 for i in self.Whitelist:
                     print i
 
-            elif message[:9] =='listwhite':
-                self.list_Whitelists(recipient_id, is_user=is_user)
-
-
         ### Print help
             if message[:4] == 'help':
                 self.send(recipient_id, "OH LOOK, WE HAVE AN IDIOT.\nEVERYONE LOOK AND LAUGH AT THE IDIOT. \nHAHAHAHAHAHAHAHAHAHAHAHAH", is_user=is_user)
@@ -459,6 +458,10 @@ class EggBot(fbchat.Client):
                 self.send(recipient_id, s, is_user=is_user)
             
         ###  Commands for plebs
+            # List people who have access to commands
+            elif message[:9] =='listwhite':
+                self.list_Whitelists(recipient_id, is_user=is_user)
+
             #flip an EGG
             elif message[:4] == 'flip':
                 message = message[4:]
@@ -525,6 +528,7 @@ class EggBot(fbchat.Client):
 
             elif message[:4] == 'dank':
                 message = message[4:]
+                self.scoreboard[str(author_id)]['dank'] += 1
                 self.dank_meme(recipient_id, is_user=is_user)
 
             # In a word, VIOLENCE
@@ -654,12 +658,12 @@ class EggBot(fbchat.Client):
     # Print the scoreboard
     def print_scoreboard(self, author_id, recipient_id, is_user=False):
         name = self.getUserInfo(int(author_id))['firstName']
-        try:
+        if str(author_id) in self.scoreboard.keys():
             i = self.scoreboard[str(author_id)]
             s = 'Your stats...\n'
             s += ('%s\nEggs on target: %s\nMissed eggs: %s\nHardboiled eggs thrown: %s\nEggs flipped: %s\nTimes an heroed: %s\nDoses taken: %s\n' %
                  (name, i['hits'], i['misses'], i['hard'], i['flipped'], i['kms'], i['doses']))
-        except:
+        else:
             s = "You don't have any stats, I'll set some up for you..."
             self.scoreboard[str(author_id)] = self.blank.copy()
             i = self.scoreboard[str(author_id)]
